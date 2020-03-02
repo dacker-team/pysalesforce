@@ -16,4 +16,3 @@ class DBStream:
         self.ssh_tunnel = None
         self.dbstream_instance_id = 'df-' + datetime.datetime.now().strftime('%s') + '-' + str(
             random.randint(1000, 9999))
-
