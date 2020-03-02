@@ -11,4 +11,7 @@ def get_access_token(client):
     }
     url = "https://login.salesforce.com/services/oauth2/token"
     r=requests.post(url, params=params).json()
-    return r.get("access_token")
+    if r.get("error"):
+        return r
+    else:
+        return r.get("access_token")
