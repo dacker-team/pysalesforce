@@ -28,6 +28,9 @@ class pysalesforce:
         self.objects=[]
         self.access_token="null"
 
+    def set_client(self, client):
+        self.client=client
+
     def auth(self):
         self.access_token=get_access_token(self.client)
 
