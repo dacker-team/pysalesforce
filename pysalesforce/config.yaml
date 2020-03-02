@@ -1,0 +1,7 @@
+objects:
+  - api_name: Account
+    name: account
+  - api_name: Opportunity
+    name: opportunity
+  - api_name: Brand_Market__c
+    name: brand_market
