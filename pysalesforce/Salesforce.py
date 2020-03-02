@@ -34,14 +34,16 @@ class Salesforce:
         config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
         _objects = config.get("objects")
         objects = []
-        for o in _objects.keys():
+        for o in _objects:
             objects.append(o["api_name"])
+        print(objects)
         return objects
 
     def get_table_names(self):
         config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
         _objects = config.get("objects")
         objects = []
-        for o in _objects.keys():
+        for o in _objects:
             objects.append(o["name"])
+        print(objects)
         return objects
