@@ -48,6 +48,7 @@ class Salesforce:
                 print (o["api_name"] + " does not exist.")
         return objects
 
+
     def get_table_names(self):
         config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
         _objects = config.get("objects")
@@ -59,7 +60,7 @@ class Salesforce:
                 print (o["name"] + " does not exist.")
         return tables
 
-    def get_all_fields(self,object_name):
+    def describe_objects(self,object_name):
         headers = {
             "Authorization": "Bearer %s" % self.access_token
         }
@@ -67,21 +68,9 @@ class Salesforce:
         result = requests.get(url, headers=headers).json()
         return [r["name"] for r in result["fields"]]
 
-    # def get_fields(self,object_name):
-        # fields = []
-        # if object_name in self.get_objects():
-        #     config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
-        #     _fields = config.get("objects")['fields']
-        #     print(_fields)
-        #     for f in _fields:
-        #         if f[0] in self.get_all_fields(object_name):
-        #             fields.append(f[0])
-        #         else:
-        #             print(f[0] + " does not exist.")
-        # return fields
 
     def query (self,object_name):
-        fields=self.get_all_fields(object_name)
+        fields=self.describe_objects(object_name)
         query='select '
         for p in fields:
             query+=p+','
@@ -89,7 +78,7 @@ class Salesforce:
         query+=' from '+object_name
         return query
 
-    def execute_query(self,query):
+    def execute_query(self,object_name,batch_size):
         result = []
         headers = {
             "Authorization": "Bearer %s" % self.access_token,
@@ -97,15 +86,51 @@ class Salesforce:
             'Content-type': 'application/json'
         }
         params = {
-            "q": query
+            "q": self.query(object_name)
         }
         BASE_URL = "https://%s.my.salesforce.com" % self.client
         url = BASE_URL + "/services/data/v44.0/query/"
         r = requests.get(url, params=params, headers=headers).json()
         result = result + r["records"]
         next_records_url = r.get('nextRecordsUrl')
-        while next_records_url:
-            r = requests.get(BASE_URL + next_records_url, headers=headers).json()
-            result = result + r["records"]
-            next_records_url = r.get('nextRecordsUrl')
-        return {"records": result}
+        totalsize=r.get('totalSize')
+        print(r.get('totalSize'))
+        i=1
+        print(i)
+        _continue = False
+        while i < batch_size:
+            _continue = True
+            if not next_records_url:
+                _continue = False
+                break
+            else:
+                _continue = True
+                while _continue:
+                    r = requests.get(BASE_URL + next_records_url, headers=headers).json()
+                    result = result + r["records"]
+                    next_records_url = r.get('nextRecordsUrl')
+                    totalsize = totalsize + r.get('totalSize')
+                    print(r.get('nextRecordsUrl'))
+                    print(r.get('totalSize'))
+                    i = i + 1
+                    print(i)
+                    _continue = False
+        return {"records": result,"object":object_name}
+
+    def process_data(self, raw_data):
+        object_row=[]
+        for r in raw_data.get("records"):
+            _object=dict()
+            for o in self.describe_objects(raw_data.get("object")):
+                _object[o.lower()]=r.get(o)
+                object_row.append(_object)
+        return object_row
+
+
+    def get_column_names(self, data):
+        column_list=[]
+        for d in data:
+            for c in d.keys():
+                if c not in column_list:
+                    column_list.append(c)
+        return column_list

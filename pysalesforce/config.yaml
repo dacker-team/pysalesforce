@@ -1,18 +1,10 @@
 objects:
-  - api_name: Account
-    name: account
-    fields:
-      - api_name: Id
-      - api_name: Amount_of_cryptoassets_to_secure__c
-      - api_name: RecordType.Name
-      - api_name: Status__c
-      - api_name: Vault_Technical_Acct_Mgr__c
-      - api_name: Owner.Name
-      - api_name: Affiliate_UUID__c
-  - api_name: Opportunity
-    name: opportunity
+#  - api_name: Account
+#    name: account
+#  - api_name: Opportunity
+#    name: opportunity
   - api_name: Vault_Instance__c
     name: vault
-  - api_name: ggggggg
-    name: vault
+#  - api_name: ggggggg
+#    name: vault
 
