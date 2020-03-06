@@ -19,6 +19,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3',
-    install_requires=[
+    install_requires=["dbstream>=0.0.14"
     ],
 )
