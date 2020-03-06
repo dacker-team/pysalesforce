@@ -8,3 +8,4 @@ dist/
 *sandbox*
 .DS_Store
 ledger_main.py
+deploy.sh
