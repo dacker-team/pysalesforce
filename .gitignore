@@ -7,3 +7,4 @@ dist/
 *egg-info/
 *sandbox*
 .DS_Store
+ledger_main.py
