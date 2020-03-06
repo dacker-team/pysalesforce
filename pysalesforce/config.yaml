@@ -1,8 +1,8 @@
 objects:
-#  - api_name: Account
-#    name: account
-#  - api_name: Opportunity
-#    name: opportunity
+  - api_name: Account
+    name: account
+  - api_name: Opportunity
+    name: opportunity
   - api_name: Vault_Instance__c
     name: vault
 #  - api_name: ggggggg

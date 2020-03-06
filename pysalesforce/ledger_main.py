@@ -1,16 +1,10 @@
+from pyred import RedDBStream
+
 import pysalesforce
 from pysalesforce.Salesforce import Salesforce
+from pysalesforce.date import *
 
+import time
 
-def ledger_main():
-    s=Salesforce("LEDGER")
-    batchsize=1
-    for p in s.get_objects():
-        print(p)
-        s.execute_query(p,batchsize)
-        raw_data=s.execute_query(p,batchsize)
-        data=s.process_data(raw_data)
-        print(s.get_column_names(data))
-
-
-
+s = Salesforce('LEDGER', 5)
+s.main()
