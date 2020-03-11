@@ -9,3 +9,4 @@ dist/
 .DS_Store
 ledger_main.py
 deploy.sh
+config.yaml

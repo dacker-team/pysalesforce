@@ -1,3 +1,4 @@
+import psycopg2
 import yaml
 import requests
 from pysalesforce.auth import get_access_token
@@ -23,15 +24,16 @@ class Salesforce:
         headers = {
             "Authorization": "Bearer %s" % self.access_token
         }
-        url = self.base_url + "/services/data/%s/sobjects/%s/describe" % (self.api_version, object_name)
+        url = self.base_url + "/services/data/%s/sobjects/%s/describe/" % (self.api_version, object_name)
         result = requests.get(url, headers=headers).json()
         return [r["name"] for r in result["fields"]]
 
     def query(self, object_name, since):
         fields = self.describe_objects(object_name)
         where_clause = ""
-        if since and 'lastmodifieddate' in fields:
-            where_clause = " where lastmodifieddate >= %s" % since
+        if since:
+            if 'LastModifiedDate' in fields:
+                where_clause = " where lastmodifieddate >= %s" % since
         query = 'select '
         for p in fields:
             query += p + ','
@@ -47,7 +49,7 @@ class Salesforce:
             'Content-type': 'application/json'
         }
         params = {
-            "q": self.query(object_name, since)
+            "q": self.query(object_name.get('api_name'), since)
         }
         url = self.base_url + "/services/data/%s/query/" % self.api_version
         if not next_records_url:
@@ -62,11 +64,11 @@ class Salesforce:
             result = result + r["records"]
             next_records_url = r.get('nextRecordsUrl')
             i = i + 1
-        return {"records": result, "object": object_name, "next_records_url": next_records_url}
+        return {"records": result, "object": object_name, "next_records_url": r.get('nextRecordsUrl')}
 
     def process_data(self, raw_data):
         object_row = []
-        object_description = self.describe_objects(raw_data.get("object"))
+        object_description = self.describe_objects(raw_data.get("object")["api_name"])
         for r in raw_data["records"]:
             _object = dict()
             for o in object_description:
@@ -107,36 +109,44 @@ class Salesforce:
             replace=False)
 
 
-def _clean(self, object_name):
-    selecting_id = 'id'
-    try:
-        cleaning_query = """
-                DELETE FROM %(schema_name)s.%(table_name)s WHERE %(id)s IN (SELECT distinct %(id)s FROM %(schema_name)s.%(table_name)s_temp);
-                INSERT INTO %(schema_name)s.%(table_name)s (SELECT * FROM %(schema_name)s.%(table_name)s_temp);
-                """ % {"table_name": object_name,
-                       "schema_name": self.schema_prefix,
-                       "id": selecting_id}
-        self.datamart.execute_query(cleaning_query)
-    except:
-        insert_query = '''CREATE TABLE%(schema_name)s.%(table_name)s as (SELECT * FROM %(schema_name)s.%(table_name)s_temp)'''
-        self.datamart.execute_query(insert_query)
+    def _clean(self, object_name):
+        selecting_id = 'id'
+        try:
+            print('trying to clean')
+            cleaning_query = """
+                    DELETE FROM %(schema_name)s.%(table_name)s WHERE %(id)s IN (SELECT distinct %(id)s FROM %(schema_name)s.%(table_name)s_temp);
+                    INSERT INTO %(schema_name)s.%(table_name)s (SELECT * FROM %(schema_name)s.%(table_name)s_temp);
+                    DELETE FROM %(schema_name)s.%(table_name)s_temp;
+                    """ % {"table_name": object_name.get('table'),
+                           "schema_name": self.schema_prefix,
+                           "id": selecting_id}
+            self.datamart.execute_query(cleaning_query)
+        except psycopg2.errors.UndefinedTable:
+            print('destination table does not exist, will be created')
+            insert_query = """
+            DROP TABLE IF EXISTS %(schema_name)s.%(table_name)s CASCADE;
+            CREATE TABLE %(schema_name)s.%(table_name)s as (SELECT * FROM %(schema_name)s.%(table_name)s_temp);
+            """% {"table_name": object_name.get('table'),
+                           "schema_name": self.schema_prefix}
+            self.datamart.execute_query(insert_query)
 
 
-def main(self, since_start=False, batchsize=100):
-    for p in self.get_objects():
-        print('Starting ' + p.get('api_name'))
-        self.create_temp_table(p)
-        since = None
-        if not since_start:
-            since = start_end_from_last_call(self, p)
-        raw_data = self.execute_query(p, batchsize, since)
-        next_records_url = raw_data.get("next_records_url")
-        data = self.process_data(raw_data)
-        self.send_temp_data(data, p)
-        while next_records_url:
-            raw_data = self.execute_query(p, batchsize, next_records_url, since)
-            next_records_url = raw_data.get("next_records_url")
+    def main(self, since_start=False, batchsize=100):
+        for p in self.get_objects():
+            print('Starting ' + p.get('api_name'))
+            self.create_temp_table(p)
+            since = None
+            if not since_start:
+                since=start_end_from_last_call(self,p)
+            raw_data = self.execute_query(p, batchsize, since)
+            next_url = raw_data.get("next_records_url")
             data = self.process_data(raw_data)
             self.send_temp_data(data, p)
-        self._clean(p)
-        print('End')
+            while next_url:
+                raw_data = self.execute_query(p, batchsize, next_records_url=next_url, since=None)
+                next_url=raw_data.get("next_records_url")
+                data = self.process_data(raw_data)
+                self.send_temp_data(data, p)
+            self._clean(p)
+            print('Ended ' + p.get('api_name'))
+

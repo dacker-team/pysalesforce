@@ -9,7 +9,7 @@ def start_end_from_last_call(salesforce_instance, o):
         updated_field = 'lastmodifieddate'
     last_n_days = o.get('last_n_days')
     if not last_n_days:
-        updated_field = 1
+        last_n_days = 1
     query = "SELECT MAX(%s) as max_ FROM %s.%s" % (updated_field, salesforce_instance.schema_prefix, table)
     try:
         result_query = salesforce_instance.datamart.execute_query(query)
@@ -19,3 +19,4 @@ def start_end_from_last_call(salesforce_instance, o):
         return str(start.isoformat()) + "Z"
     except (IndexError, TypeError, psycopg2.ProgrammingError) as e:
         return None
+
