@@ -6,12 +6,13 @@ from pysalesforce.date import start_end_from_last_call
 
 
 class Salesforce:
-    def __init__(self, client, clientid, datamart, config_file_path, schema_prefix, base_url, api_version=None):
+    def __init__(self, client, clientid, datamart, config_file_path, schema_prefix, auth_url, base_url, api_version=None):
         self.client = client
         self.clientid = clientid
         self.datamart = datamart
         self.config_file_path = config_file_path
-        self.access_token = get_access_token(client)
+        self.auth_url=auth_url
+        self.access_token = get_access_token(client, self.auth_url)
         self.schema_prefix = schema_prefix
         self.base_url = base_url
         self.api_version = api_version
@@ -19,6 +20,10 @@ class Salesforce:
     def get_objects(self):
         config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
         return config.get("objects")
+
+    def get_endpoint(self):
+        config=yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
+        return config.get("endpoints")
 
     def describe_objects(self, object_name):
         headers = {
@@ -39,6 +44,7 @@ class Salesforce:
             query += p + ','
         query = query[:-1]
         query += ' from ' + object_name + where_clause
+        print(query)
         return query
 
     def execute_query(self, object_name, batch_size, since, next_records_url=None):
@@ -56,7 +62,8 @@ class Salesforce:
             r = requests.get(url, params=params, headers=headers).json()
         else:
             r = requests.get(self.base_url + next_records_url, headers=headers).json()
-        result = result + r["records"]
+        print(r)
+        result = result + r.get("records")
         next_records_url = r.get('nextRecordsUrl')
         i = 1
         while i < batch_size and next_records_url:
@@ -65,6 +72,18 @@ class Salesforce:
             next_records_url = r.get('nextRecordsUrl')
             i = i + 1
         return {"records": result, "object": object_name, "next_records_url": r.get('nextRecordsUrl')}
+
+    def retrieve_endpoint(self, endpoint,since=None):
+        headers = {
+            "Authorization": "Bearer %s" % self.access_token
+        }
+        if not since:
+            condition=''
+        else:
+            condition='?lastModificationDate=%s' %since
+        url = self.base_url + "/services/apexrest/%s" %endpoint+condition
+        r = requests.get(url, headers=headers).json()
+        return r
 
     def process_data(self, raw_data):
         object_row = []
@@ -131,22 +150,29 @@ class Salesforce:
             self.datamart.execute_query(insert_query)
 
 
-    def main(self, since_start=False, batchsize=100):
-        for p in self.get_objects():
-            print('Starting ' + p.get('api_name'))
-            self.create_temp_table(p)
-            since = None
-            if not since_start:
-                since=start_end_from_last_call(self,p)
-            raw_data = self.execute_query(p, batchsize, since)
-            next_url = raw_data.get("next_records_url")
-            data = self.process_data(raw_data)
-            self.send_temp_data(data, p)
-            while next_url:
-                raw_data = self.execute_query(p, batchsize, next_records_url=next_url, since=None)
-                next_url=raw_data.get("next_records_url")
-                data = self.process_data(raw_data)
-                self.send_temp_data(data, p)
+    def main(self, since_start=False, batchsize=100, endpoint=False):
+        if endpoint==False:
+            for p in self.get_objects():
+                print('Starting ' + p.get('api_name'))
+                self.create_temp_table(p)
+                since = None
+                if not since_start:
+                    since=start_end_from_last_call(self,p)
+                    raw_data = self.execute_query(p, batchsize, since)
+                    next_url = raw_data.get("next_records_url")
+                    data = self.process_data(raw_data)
+                    self.send_temp_data(data, p)
+                    while next_url:
+                        raw_data = self.execute_query(p, batchsize, next_records_url=next_url, since=None)
+                        next_url=raw_data.get("next_records_url")
+                        data = self.process_data(raw_data)
+                        self.send_temp_data(data, p)
+        else:
+            for p in self.get_endpoint():
+                print('Starting ' + p.get('name'))
+                self.create_temp_table(p)
+
+                    #raw_data=self.
             self._clean(p)
             print('Ended ' + p.get('api_name'))
 
