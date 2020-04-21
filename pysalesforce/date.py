@@ -12,7 +12,7 @@ def start_end_from_last_call(salesforce_instance, o):
         last_n_days = 1
     query = "SELECT MAX(%s) as max_ FROM %s.%s" % (updated_field, salesforce_instance.schema_prefix, table)
     try:
-        result_query = salesforce_instance.datamart.execute_query(query)
+        result_query = salesforce_instance.dbstream.execute_query(query)
         start = result_query[0]["max_"]
         if last_n_days:
             start = start + datetime.timedelta(days=-last_n_days)
