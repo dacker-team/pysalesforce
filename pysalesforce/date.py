@@ -10,7 +10,7 @@ def start_end_from_last_call(salesforce_instance, o):
     last_n_days = o.get('last_n_days')
     if not last_n_days:
         last_n_days = 1
-    query = "SELECT MAX(%s) as max_ FROM %s.%s" % (updated_field, salesforce_instance.schema_prefix, table)
+    query = "SELECT MAX(%s) as max_ FROM %s.%s" % (updated_field, salesforce_instance.get_schema_prefix(), table)
     try:
         result_query = salesforce_instance.dbstream.execute_query(query)
         start = result_query[0]["max_"]

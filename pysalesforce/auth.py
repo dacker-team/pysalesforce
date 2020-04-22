@@ -4,7 +4,7 @@ import requests
 url = "https://login.salesforce.com/services/oauth2/token"
 
 
-def get_token_and_base_url(client, login=True):
+def get_token_and_base_url(client, salesforce_test_instance=False):
     params = {
         "grant_type": "password",
         "client_id": os.environ["SALESFORCE_%s_CLIENT_ID" % client],
@@ -12,7 +12,7 @@ def get_token_and_base_url(client, login=True):
         "username": os.environ["SALESFORCE_%s_USERNAME" % client],
         "password": os.environ["SALESFORCE_%s_PASSWORD" % client] + os.environ["SALESFORCE_%s_SECURITY_TOKEN" % client],
     }
-    if login==True:
+    if salesforce_test_instance==False:
         url = "https://login.salesforce.com/services/oauth2/token"
     else:
         url = "https://test.salesforce.com/services/oauth2/token"

@@ -16,12 +16,12 @@ class Salesforce:
     # Base_url vient de la réponse de l'access_token
     # login=False correspont a auth_url avec test, login=True correspond à auth_url avec login
 
-    def __init__(self, var_env_key, dbstream, config_file_path, login, api_version=None):
+    def __init__(self, var_env_key, dbstream, config_file_path, salesforce_test_instance=False, api_version=None):
         self.var_env_key = var_env_key
         self.dbstream = dbstream
         self.config_file_path = config_file_path
-        self.login = login
-        [self.access_token, self.base_url] = get_token_and_base_url(var_env_key, self.login)
+        self.salesforce_test_instance = salesforce_test_instance
+        [self.access_token, self.base_url] = get_token_and_base_url(var_env_key, self.salesforce_test_instance)
         self.api_version = api_version
 
     def get_objects(self):
@@ -55,7 +55,6 @@ class Salesforce:
             query += p + ','
         query = query[:-1]
         query += ' from ' + object_name + where_clause
-        print(query)
         return query
 
     def execute_query(self, object_name, batch_size, since, next_records_url=None):
@@ -73,7 +72,6 @@ class Salesforce:
             r = requests.get(url, params=params, headers=headers).json()
         else:
             r = requests.get(self.base_url + next_records_url, headers=headers).json()
-        print(r)
         result = result + r.get("records")
         next_records_url = r.get('nextRecordsUrl')
         i = 1
@@ -92,17 +90,14 @@ class Salesforce:
         if since:
             params = {'lastModificationDate': since}
         url = self.base_url + "/services/apexrest/%s" % endpoint
-        print(url)
         r = requests.get(url, headers=headers, params=params).json()
-        print(r)
         return r
 
     def process_data(self, raw_data):
         object_row = []
-        object_description = self.describe_objects(raw_data.get("object")["name"])
-        for r in raw_data["records"]:
+        for r in raw_data:
             _object = dict()
-            for o in object_description:
+            for o in r.keys():
                 if type(r.get(o)) == dict:
                     _object[o.lower()] = str(r.get(o))
                 else:
@@ -110,20 +105,7 @@ class Salesforce:
             object_row.append(_object)
         return object_row
 
-    def process_data_endpoint(self, raw_data):
-        # pourquoi la fonction au dessus a besoin de describe objets et pas celle ci ?
-        # là on pourrait la sortir de la classe
-
-        object_row = []
-        for r in raw_data:
-            _object = dict()
-            for k in r.keys():
-                _object[k] = r.get(k)
-            object_row.append(_object)
-        return object_row
-
     def get_column_names(self, data):
-        # IDEM
 
         column_list = []
         for d in data:
@@ -150,7 +132,6 @@ class Salesforce:
             "columns_name": column_names,
             "rows": [[r[c] for c in column_names] for r in data],
             "table_name": schema_prefix + '.' + table + '_temp'}
-        print('True')
         self.dbstream.send_data(
             data=data_to_send,
             replace=False)
@@ -204,13 +185,13 @@ class Salesforce:
                     since = start_end_from_last_call(self, p)
                 raw_data = self.execute_query(p, batchsize, since)
                 next_url = raw_data.get("next_records_url")
-                data = self.process_data(raw_data)
+                data = self.process_data(raw_data["records"])
                 self.send_temp_data(data,schema, p.get('table'))
                 while next_url:
                     raw_data = self.execute_query(p, batchsize, next_records_url=next_url, since=None)
                     next_url = raw_data.get("next_records_url")
-                    data = self.process_data(raw_data)
-                    self.send_temp_data(data, p)
+                    data = self.process_data(raw_data["records"])
+                    self.send_temp_data(data,schema,p.get('table'))
                 print('Ended ' + p.get('name'))
                 self._clean(schema,p.get('table'))
         else:
@@ -221,7 +202,7 @@ class Salesforce:
                 if not since_start:
                     since = datetime.strftime(datetime.now() - timedelta(1), '%Y-%m-%d')
                 raw_data = self.retrieve_endpoint(p.get('name'), since)
-                data = self.process_data_endpoint(raw_data)
+                data = self.process_data(raw_data)
                 print(data)
                 self.send_temp_data(data,schema, p.get('table'))
             print('Ended ' + p.get('name'))
