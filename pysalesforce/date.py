@@ -1,5 +1,6 @@
 import datetime
 import psycopg2
+import pyodbc
 
 
 def start_end_from_last_call(salesforce_instance, o):
@@ -17,6 +18,6 @@ def start_end_from_last_call(salesforce_instance, o):
         if last_n_days:
             start = start + datetime.timedelta(days=-last_n_days)
         return str(start.isoformat()) + "Z"
-    except (IndexError, TypeError, psycopg2.ProgrammingError) as e:
+    except (IndexError, TypeError, psycopg2.ProgrammingError, pyodbc.ProgrammingError) as e:
         return None
 
