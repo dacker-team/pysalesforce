@@ -1,9 +1,5 @@
 import os
-import time
-
 import requests
-
-url = "https://login.salesforce.com/services/oauth2/token"
 
 
 def get_token_and_base_url(client, salesforce_test_instance=False):
@@ -14,7 +10,7 @@ def get_token_and_base_url(client, salesforce_test_instance=False):
         "username": os.environ["SALESFORCE_%s_USERNAME" % client],
         "password": os.environ["SALESFORCE_%s_PASSWORD" % client] + os.environ["SALESFORCE_%s_SECURITY_TOKEN" % client],
     }
-    if salesforce_test_instance==False:
+    if not salesforce_test_instance:
         url = "https://login.salesforce.com/services/oauth2/token"
     else:
         url = "https://test.salesforce.com/services/oauth2/token"
@@ -23,4 +19,4 @@ def get_token_and_base_url(client, salesforce_test_instance=False):
     if r.get("error"):
         return r
     else:
-        return [r.get("access_token"),r.get('instance_url')]
+        return r.get("access_token"), r.get('instance_url')

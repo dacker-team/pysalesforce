@@ -1,40 +1,22 @@
-import csv
-import os
-import time
-import uuid
-from datetime import date, datetime, timedelta
-
-import psycopg2
-import pyodbc as pyodbc
 import yaml
 import requests
 from pysalesforce.auth import get_token_and_base_url
-from pysalesforce.date import start_end_from_last_call
-
-from pysalesforce.useful import process_data, get_column_names, _clean, create_temp_table, send_temp_data
-from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
+from pysalesforce.useful import process_data, get_column_names, _clean, send_temp_data
 
 
 class Salesforce:
-    # l'api version par défaut on met 44 non ? ou autre ? mais avec None ca marche pas non ? faudrait voir aussi ce que ca
-    # donne si on fait un call avec la mauvaise version et traiter proprement l'erreur pour que ce soit forcément explicite
-    # pour MH on en n'a pas besoin donc je laisse par défaut None, je referai le test avec Ledger et je regarde l'erreur que ça pourrait donner
-
-    # Base_url vient de la réponse de l'access_token
-    # login=False correspont a auth_url avec test, login=True correspond à auth_url avec login
+    # >>>Si on fait un call avec la mauvaise version et traiter proprement l'erreur pour que ce soit forcément explicite
 
     def __init__(self, var_env_key, dbstream, config_file_path, salesforce_test_instance=False, api_version=None):
         self.var_env_key = var_env_key
         self.dbstream = dbstream
         self.config_file_path = config_file_path
         self.salesforce_test_instance = salesforce_test_instance
-        [self.access_token, self.base_url] = get_token_and_base_url(var_env_key, self.salesforce_test_instance)
+        self.access_token, self.base_url = get_token_and_base_url(var_env_key, self.salesforce_test_instance)
         self.api_version = api_version
 
     def get_objects(self):
-        time1 = time.time()
         config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
-        # print((time.time() - time1))
         return config.get("objects")
 
     def get_endpoint(self):
@@ -42,10 +24,7 @@ class Salesforce:
         return config.get("endpoints")
 
     def get_schema_prefix(self):
-        time1 = time.time()
         config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
-        # print((time.time() - time1))
-
         return config.get("schema_prefix")
 
     def describe_objects(self, object_name):
@@ -105,16 +84,13 @@ class Salesforce:
         r = requests.get(url, headers=headers, params=params).json()
         return r
 
-    def main(self, _object, schema, since_start=False, batchsize=100):
+    def main(self, _object, schema, since=None, batchsize=100):
         print('Starting ' + _object.get('name'))
         if not _object.get('table'):
             table = _object.get('name').lower() + 's'
         else:
             table = _object.get('table')
-        since = None
         next_url = None
-        if not since_start:
-            since = start_end_from_last_call(self, _object)
         if _object.get("endpoint") == True:
             raw_data = self.retrieve_endpoint(_object.get('name'), since)
             data = process_data(raw_data)
