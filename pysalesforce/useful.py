@@ -1,8 +1,3 @@
-import time
-import psycopg2
-import pyodbc
-
-
 def process_data(raw_data):
     object_row = []
     for r in raw_data:

@@ -1,1 +1,1 @@
-# from dbstream.PySalesforce import DBStream
+from pysalesforce.Salesforce import Salesforce
