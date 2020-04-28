@@ -1,3 +1,7 @@
+import csv
+import os
+import time
+import uuid
 from datetime import date, datetime, timedelta
 
 import psycopg2
@@ -6,7 +10,9 @@ import yaml
 import requests
 from pysalesforce.auth import get_token_and_base_url
 from pysalesforce.date import start_end_from_last_call
+
 from pysalesforce.useful import process_data, get_column_names, _clean, create_temp_table, send_temp_data
+from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 
 
 class Salesforce:
@@ -26,7 +32,9 @@ class Salesforce:
         self.api_version = api_version
 
     def get_objects(self):
+        time1 = time.time()
         config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
+        # print((time.time() - time1))
         return config.get("objects")
 
     def get_endpoint(self):
@@ -34,7 +42,10 @@ class Salesforce:
         return config.get("endpoints")
 
     def get_schema_prefix(self):
+        time1 = time.time()
         config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
+        # print((time.time() - time1))
+
         return config.get("schema_prefix")
 
     def describe_objects(self, object_name):
@@ -94,25 +105,31 @@ class Salesforce:
         r = requests.get(url, headers=headers, params=params).json()
         return r
 
-    def main(self, object, schema, since_start=False, batchsize=100):
-        print('Starting ' + object.get('name'))
-        create_temp_table(self.dbstream,schema,object.get('table'))
+    def main(self, _object, schema, since_start=False, batchsize=100):
+        print('Starting ' + _object.get('name'))
+        if not _object.get('table'):
+            table = _object.get('name').lower() + 's'
+        else:
+            table = _object.get('table')
         since = None
         next_url = None
         if not since_start:
-            since = start_end_from_last_call(self,object)
-        if object.get("endpoint") == True:
-            raw_data = self.retrieve_endpoint(object.get('name'), since)
+            since = start_end_from_last_call(self, _object)
+        if _object.get("endpoint") == True:
+            raw_data = self.retrieve_endpoint(_object.get('name'), since)
             data = process_data(raw_data)
         else:
-            raw_data = self.execute_query(object, batchsize, since)
+            raw_data = self.execute_query(_object, batchsize, since)
             next_url = raw_data.get("next_records_url")
             data = process_data(raw_data["records"])
-        send_temp_data(self.dbstream,data,schema, object.get('table'))
+
+        columns = get_column_names(data)
+
+        send_temp_data(self.dbstream, data, schema, table, columns)
         while next_url:
-            raw_data = self.execute_query(object, batchsize, next_records_url=next_url, since=None)
+            raw_data = self.execute_query(_object, batchsize, next_records_url=next_url, since=None)
             next_url = raw_data.get("next_records_url")
             data = process_data(raw_data["records"])
-            send_temp_data(self.dbstream,data,schema,object.get('table'))
-        print('Ended ' + object.get('name'))
-        _clean(self.dbstream,schema,object.get('table'))
+            send_temp_data(self.dbstream, data, schema, table, columns)
+        print('Ended ' + _object.get('name'))
+        _clean(self.dbstream, schema, table)

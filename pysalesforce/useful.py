@@ -1,8 +1,11 @@
+import time
+
 import psycopg2
 import pyodbc
 
 
 def process_data(raw_data):
+    time1 = time.time()
     object_row = []
     for r in raw_data:
         _object = dict()
@@ -12,15 +15,19 @@ def process_data(raw_data):
             else:
                 _object[o.lower()] = r.get(o)
         object_row.append(_object)
+   # print((time.time() - time1))
     return object_row
 
 
 def get_column_names(data):
+    time1 = time.time()
     column_list = []
     for d in data:
         for c in d.keys():
             if c not in column_list:
                 column_list.append(c)
+    #print((time.time() - time1))
+    print(len(column_list))
     return column_list
 
 def create_temp_table(datamart, schema_prefix, table):
@@ -35,15 +42,23 @@ def create_temp_table(datamart, schema_prefix, table):
     except:
         print('temp_table not created')
 
-def send_temp_data(datamart, data, schema_prefix, table):
-    column_names = get_column_names(data)
+def send_temp_data(datamart, data, schema_prefix, table, column_names):
+    time1=time.time()
+    #column_names = get_column_names(data)
+    time2 = time.time()
+    print(time2-time1)
     data_to_send = {
         "columns_name": column_names,
         "rows": [[r[c] for c in column_names] for r in data],
         "table_name": schema_prefix + '.' + table + '_temp'}
+    time3 = time.time()
+    print(time3 - time2)
     datamart.send_data(
         data=data_to_send,
         replace=False)
+    time4 = time.time()
+    print(time4 - time3)
+
 
 def _clean(datamart,schema_prefix, table):
     selecting_id = 'id'

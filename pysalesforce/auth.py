@@ -1,4 +1,6 @@
 import os
+import time
+
 import requests
 
 url = "https://login.salesforce.com/services/oauth2/token"
@@ -16,6 +18,7 @@ def get_token_and_base_url(client, salesforce_test_instance=False):
         url = "https://login.salesforce.com/services/oauth2/token"
     else:
         url = "https://test.salesforce.com/services/oauth2/token"
+
     r = requests.post(url, params=params).json()
     if r.get("error"):
         return r
