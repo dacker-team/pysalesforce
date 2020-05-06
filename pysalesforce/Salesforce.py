@@ -25,8 +25,7 @@ class Salesforce:
         _object = self._objects[_object_key]
         if not _object.get('table'):
             return _object_key.lower() + 's'
-        else:
-            return _object.get('table')
+        return _object.get('table')
 
     def describe_objects(self, object_name):
         headers = {
