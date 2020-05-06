@@ -16,7 +16,6 @@ def get_token_and_base_url(client, salesforce_test_instance=False):
         url = "https://test.salesforce.com/services/oauth2/token"
 
     r = requests.post(url, params=params).json()
-    print(r)
     if r.get("error"):
         return r
     else:

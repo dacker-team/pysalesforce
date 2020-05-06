@@ -10,3 +10,6 @@ dist/
 ledger_main.py
 deploy.sh
 config.yaml
+*csv*
+*orders*
+*blob*

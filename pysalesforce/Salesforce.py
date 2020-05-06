@@ -14,26 +14,21 @@ class Salesforce:
         self.salesforce_test_instance = salesforce_test_instance
         self.access_token, self.base_url = get_token_and_base_url(var_env_key, self.salesforce_test_instance)
         self.api_version = api_version
-
-    def get_objects(self):
-        config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
-        return config.get("objects")
+        self._objects=yaml.load(open(self.config_file_path), Loader=yaml.FullLoader).get('objects')
+        self.schema_prefix=yaml.load(open(self.config_file_path), Loader=yaml.FullLoader).get("schema_prefix")
 
     def get_endpoint(self):
         config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
         return config.get("endpoints")
 
-    def get_schema_prefix(self):
-        config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
-        return config.get("schema_prefix")
 
     def get_table(self, _object_key):
-        _object=self.get_objects()[_object_key]
+        _object=self._objects[_object_key]
         if not _object.get('table'):
-            table = _object_key.lower() + 's'
+            return _object_key.lower() + 's'
         else:
-            table = _object.get('table')
-        return table
+            return _object.get('table')
+
 
     def describe_objects(self, object_name):
         headers = {
@@ -95,8 +90,8 @@ class Salesforce:
     def main(self, _object_key, since=None, batchsize=10):
         print('Starting ' + _object_key)
 
-        _object = self.get_objects()[_object_key]
-        schema = self.get_schema_prefix()
+        _object = self._objects[_object_key]
+        schema = self.schema_prefix
         table=self.get_table(_object_key)
         next_url = None
 
