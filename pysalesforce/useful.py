@@ -1,4 +1,10 @@
-def process_data(raw_data):
+import datetime
+import time
+
+from dateutil.utils import today
+
+
+def process_data(raw_data, imported_at=True):
     object_row = []
     for r in raw_data:
         _object = dict()
@@ -7,17 +13,21 @@ def process_data(raw_data):
                 _object[o.lower()] = str(r.get(o))
             else:
                 _object[o.lower()] = r.get(o)
+        if imported_at:
+            _object['imported_at']= today()
         object_row.append(_object)
     return object_row
 
 
-def get_column_names(data):
+def get_column_names(data, remove_columns=None, add_columns=None):
     column_list = []
     for d in data:
         for c in d.keys():
             if c not in column_list:
                 column_list.append(c)
-    print(len(column_list))
+    if remove_columns:
+        for r in remove_columns:
+            column_list.remove(r)
     return column_list
 
 
