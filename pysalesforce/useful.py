@@ -4,10 +4,13 @@ import time
 from dateutil.utils import today
 
 
-def process_data(raw_data, imported_at=True):
+def process_data(raw_data, remove_columns=None, imported_at=True):
     object_row = []
     for r in raw_data:
         _object = dict()
+        if remove_columns:
+            for c in remove_columns:
+                r.pop(c, None)
         for o in r.keys():
             if type(r.get(o)) == dict:
                 _object[o.lower()] = str(r.get(o))
@@ -19,15 +22,12 @@ def process_data(raw_data, imported_at=True):
     return object_row
 
 
-def get_column_names(data, remove_columns=None, add_columns=None):
+def get_column_names(data):
     column_list = []
     for d in data:
         for c in d.keys():
             if c not in column_list:
                 column_list.append(c)
-    if remove_columns:
-        for r in remove_columns:
-            column_list.remove(r)
     return column_list
 
 
