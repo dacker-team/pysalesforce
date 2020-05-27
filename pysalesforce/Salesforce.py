@@ -94,11 +94,11 @@ class Salesforce:
 
         if _object.get("endpoint"):
             raw_data = self.retrieve_endpoint(_object_key, since)
-            data = process_data(raw_data)
+            data = process_data(raw_data=raw_data["records"], remove_columns=_object.get('remove_columns'), imported_at=_object.get('imported_at'))
         else:
             raw_data = self.execute_query(_object_key, batchsize, since)
             next_url = raw_data.get("next_records_url")
-            data = process_data(raw_data["records"])
+            data = process_data(raw_data=raw_data["records"], remove_columns=_object.get('remove_columns'), imported_at=_object.get('imported_at'))
 
         columns = get_column_names(data)
         send_temp_data(self.dbstream, data, schema, table, columns)
@@ -106,7 +106,7 @@ class Salesforce:
         while next_url:
             raw_data = self.execute_query(_object_key, batchsize, next_records_url=next_url, since=None)
             next_url = raw_data.get("next_records_url")
-            data = process_data(raw_data["records"])
+            data = process_data(raw_data=raw_data["records"], remove_columns=_object.get('remove_columns'), imported_at=_object.get('imported_at'))
             send_temp_data(self.dbstream, data, schema, table, columns)
 
         print('Ended ' + _object_key)
