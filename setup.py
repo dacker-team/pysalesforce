@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pysalesforce",
-    version="0.0.6",
+    version="0.0.7",
     author="Dacker",
     author_email="hello@dacker.co",
     description="A Salesforce connector",
@@ -20,7 +20,7 @@ setuptools.setup(
     ],
     python_requires='>=3',
     install_requires=[
-        "dbstream>=0.0.14",
+        "dbstream>=0.0.16",
         "pyyaml>=5.3.1"
     ],
 )
