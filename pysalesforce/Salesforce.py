@@ -129,7 +129,7 @@ class Salesforce:
             columns = get_column_names(data)
             dbstream.send_with_temp_table(data, columns, 'id', schema, table)
             while next_url:
-                data, next_url = self.process_object_data(_object, _object_key, batchsize, since, nexturl=next_url)
+                data, next_url = self.process_object_data(_object, _object_key, batchsize, nexturl=next_url)
                 dbstream.send_with_temp_table(data, columns, 'id', schema, table)
 
         print('Ended ' + _object_key)
