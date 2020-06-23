@@ -73,16 +73,39 @@ class Salesforce:
             i = i + 1
         return {"records": result, "object": _object_key, "next_records_url": r.get('nextRecordsUrl')}
 
-    def retrieve_endpoint(self, endpoint, since=None):
+    def retrieve_endpoint(self, endpoint, since=None, next_url=None):
         headers = {
             "Authorization": "Bearer %s" % self.access_token
         }
         params = {}
-        if since:
-            params = {'lastModificationDate': since}
-        url = self.base_url + "/services/apexrest/%s" % endpoint
-        r = requests.get(url, headers=headers, params=params).json()
+        if not next_url:
+            if since:
+                params = {'lastModificationDate': since}
+            url = self.base_url + "/services/apexrest/%s" % endpoint
+            r = requests.get(url, headers=headers, params=params).json()
+        else:
+            r = requests.get(next_url, headers=headers, params=params).json()
         return r
+
+    def process_endpoint_data(self, _object, _object_key, since, table, nexturl=None):
+        if not nexturl:
+            raw_data = self.retrieve_endpoint(_object_key, since)
+        else:
+            raw_data = self.retrieve_endpoint(_object_key, since=None, next_url=nexturl)
+        data = process_data(raw_data=raw_data[table], remove_columns=_object.get('remove_columns'),
+                            imported_at=_object.get('imported_at'))
+        next_url = raw_data.get("nextPageURL")
+        return data, next_url
+
+    def process_object_data(self, _object, _object_key, batchsize, since, nexturl=None):
+        if not nexturl:
+            raw_data = self.execute_query(_object_key, batchsize, since)
+        else:
+            raw_data = self.execute_query(_object_key, batchsize, next_records_url=nexturl, since=None)
+        data = process_data(raw_data=raw_data["records"], remove_columns=_object.get('remove_columns'),
+                            imported_at=_object.get('imported_at'))
+        next_url = raw_data.get("next_records_url")
+        return data, next_url
 
     def main(self, _object_key, since=None, batchsize=10):
         print('Starting ' + _object_key)
@@ -90,26 +113,23 @@ class Salesforce:
         _object = self.objects[_object_key]
         schema = self.schema_prefix
         table = self.get_table(_object_key)
-        dbstream=self.dbstream
+        dbstream = self.dbstream
         next_url = None
 
         if _object.get("endpoint"):
-            raw_data = self.retrieve_endpoint(_object_key, since)
-            data = process_data(raw_data=raw_data, remove_columns=_object.get('remove_columns'), imported_at=_object.get('imported_at'))
+            data, next_url = self.process_endpoint_data(_object, _object_key, since, table, nexturl=next_url)
+            columns = get_column_names(data)
+            dbstream.send_with_temp_table(data, columns, 'id', schema, table)
+            while next_url:
+                data, next_url = self.process_endpoint_data(_object, _object_key, since, table, nexturl=next_url)
+                dbstream.send_with_temp_table(data, columns, 'id', schema, table)
 
         else:
-            raw_data = self.execute_query(_object_key, batchsize, since)
-            next_url = raw_data.get("next_records_url")
-            data = process_data(raw_data=raw_data["records"], remove_columns=_object.get('remove_columns'), imported_at=_object.get('imported_at'))
-
-        columns = get_column_names(data)
-        dbstream.send_with_temp_table( data, columns, 'id', schema, table)
-
-        while next_url:
-            raw_data = self.execute_query(_object_key, batchsize, next_records_url=next_url, since=None)
-            next_url = raw_data.get("next_records_url")
-            data = process_data(raw_data=raw_data["records"], remove_columns=_object.get('remove_columns'), imported_at=_object.get('imported_at'))
-            dbstream.send_with_temp_table( data, columns, 'id', schema, table)
+            data, next_url = self.process_object_data(_object, _object_key, batchsize, since, nexturl=next_url)
+            columns = get_column_names(data)
+            dbstream.send_with_temp_table(data, columns, 'id', schema, table)
+            while next_url:
+                data, next_url = self.process_object_data(_object, _object_key, batchsize, since, nexturl=next_url)
+                dbstream.send_with_temp_table(data, columns, 'id', schema, table)
 
         print('Ended ' + _object_key)
-
