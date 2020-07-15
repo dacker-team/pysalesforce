@@ -1,6 +1,3 @@
-import datetime
-import time
-
 from dateutil.utils import today
 
 
@@ -17,7 +14,7 @@ def process_data(raw_data, remove_columns=None, imported_at=True):
             else:
                 _object[o.lower()] = r.get(o)
         if imported_at:
-            _object['imported_at']= today()
+            _object['imported_at'] = today()
         object_row.append(_object)
     return object_row
 
