@@ -161,17 +161,19 @@ class Salesforce:
 
     def main_bulk(self, jobs_to_launch, batch_id=None, timeout=None):
         if not batch_id:
-            batch_id = str(uuid.uuid4())
+            _batch_id = str(uuid.uuid4())
+        else:
+            _batch_id = batch_id
         print(datetime.datetime.now())
         if not batch_id:
             for job in jobs_to_launch:
-                self.launch_job(self.query(job["object"], job["since"]), batch_id)
+                self.launch_job(self.query(job["object"], job["since"]), _batch_id)
                 print("%s launched job %s " % (datetime.datetime.now(), job["object"]))
 
-        job_id, _object = self.update_jobs_status(batch_id=batch_id, stop_if_one_is_completed=True)
+        job_id, _object = self.update_jobs_status(batch_id=_batch_id, stop_if_one_is_completed=True)
         while job_id is not None:
             self.process_bulk_data(_object, job_id)
-            job_id, _object = self.update_jobs_status(batch_id=batch_id, stop_if_one_is_completed=True)
+            job_id, _object = self.update_jobs_status(batch_id=_batch_id, stop_if_one_is_completed=True)
             print("%s job processed %s " % (datetime.datetime.now(), job_id))
         objects_not_loaded = self.dbstream.execute_query(
             """
@@ -180,11 +182,15 @@ class Salesforce:
             from %s._jobs
             where batch_id='%s'
             and  fetched_at is null 
-            """ % (self.schema_prefix, batch_id)
+            """ % (self.schema_prefix, _batch_id)
         )
         if objects_not_loaded:
             raise Exception(
-                "This Salesforce objects was not fetched in batch_id %s : %s" % (batch_id, ",".join([k["object"] for k in objects_not_loaded])))
+                "This Salesforce objects was not fetched in batch_id %s : %s" % (
+                    _batch_id,
+                    ",".join([k["object"] for k in objects_not_loaded])
+                )
+            )
 
     def execute_query(self, _object_key, batch_size, since, next_records_url=None):
         result = []
