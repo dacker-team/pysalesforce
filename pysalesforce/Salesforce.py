@@ -12,7 +12,7 @@ from pysalesforce.useful import process_data, get_column_names, _clean, send_tem
 class Salesforce:
     # >>>Si on fait un call avec la mauvaise version et traiter proprement l'erreur pour que ce soit forcément explicite
 
-    def __init__(self, var_env_key, dbstream, config_file_path, salesforce_test_instance=False, api_version=None):
+    def __init__(self, var_env_key, dbstream, config_file_path, salesforce_test_instance=False, api_version=None, schema_prefix=None):
         self.var_env_key = var_env_key
         self.dbstream = dbstream
         self.config_file_path = config_file_path
@@ -20,7 +20,7 @@ class Salesforce:
         self.access_token, self.base_url = get_token_and_base_url(var_env_key, self.salesforce_test_instance)
         self.api_version = api_version
         self.objects = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader).get('objects')
-        self.schema_prefix = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader).get("schema_prefix")
+        self.schema_prefix = schema_prefix if schema_prefix else yaml.load(open(self.config_file_path),Loader=yaml.FullLoader).get("schema_prefix")
 
     def get_endpoint(self):
         config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
