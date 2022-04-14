@@ -1,3 +1,4 @@
+import pandas as pd
 from dateutil.utils import today
 
 
@@ -11,6 +12,8 @@ def process_data(raw_data, remove_columns=None, imported_at=True):
         for o in r.keys():
             if type(r.get(o)) == dict:
                 _object[o.lower()] = str(r.get(o))
+            elif pd.isna(r.get(o)):
+                _object[o.lower()] = None
             else:
                 _object[o.lower()] = r.get(o)
         if imported_at:

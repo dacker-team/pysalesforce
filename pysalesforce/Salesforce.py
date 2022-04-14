@@ -1,6 +1,7 @@
 import datetime
 import io
 import json
+import time
 import uuid
 import pandas as pd
 import yaml
@@ -94,27 +95,31 @@ class Salesforce:
         """ % (self.schema_prefix, ("batch_id='%s'" % batch_id) if batch_id else "1=1")
 
         jobs = self.dbstream.execute_query(jobs_query)
-
-        for job in jobs:
-            headers = {
-                "Authorization": "Bearer %s" % self.access_token
-            }
-
-            url = self.base_url + "/services/data/%s/jobs/query/%s" % (self.api_version, job["id"])
-
-            r = requests.get(url, headers=headers).json()
-            self.dbstream.execute_query("delete from %s._jobs where id='%s'" % (self.schema_prefix, job["id"]))
-            r["batch_id"] = job["batch_id"]
-            r["fetched_at"] = None
-            self.dbstream.send(
-                replace=False,
-                data={
-                    "data": [r],
-                    "table_name": "%s.%s" % (self.schema_prefix, "_jobs")
+        t = datetime.datetime.now()
+        while (datetime.datetime.now() - t).seconds < 120:
+            for job in jobs:
+                headers = {
+                    "Authorization": "Bearer %s" % self.access_token
                 }
-            )
-            if stop_if_one_is_completed and r["state"] == "JobComplete":
-                return job["id"], job["object"].lower()
+
+                url = self.base_url + "/services/data/%s/jobs/query/%s" % (self.api_version, job["id"])
+
+                r = requests.get(url, headers=headers).json()
+                self.dbstream.execute_query("delete from %s._jobs where id='%s'" % (self.schema_prefix, job["id"]))
+                r["batch_id"] = job["batch_id"]
+                r["fetched_at"] = None
+                self.dbstream.send(
+                    replace=False,
+                    data={
+                        "data": [r],
+                        "table_name": "%s.%s" % (self.schema_prefix, "_jobs")
+                    }
+                )
+                if stop_if_one_is_completed and r["state"] == "JobComplete":
+                    return job["id"], job["object"].lower()
+            time.sleep(1)
+            if (datetime.datetime.now() - t).seconds % 10 == 0:
+                print("Waiting since %s seconds" % (datetime.datetime.now() - t).seconds)
         return None, None
 
     def get_data_completed_job(self, job_id, locator=None):
