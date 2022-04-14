@@ -96,6 +96,8 @@ class Salesforce:
 
         jobs = self.dbstream.execute_query(jobs_query)
         t = datetime.datetime.now()
+        if not jobs:
+            return None, None
         while (datetime.datetime.now() - t).seconds < 120:
             for job in jobs:
                 headers = {
