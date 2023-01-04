@@ -1,19 +1,20 @@
 import datetime
 import io
 import json
+import logging
 import time
 import uuid
 import pandas as pd
 import yaml
 import requests
 from pysalesforce.auth import get_token_and_base_url
-from pysalesforce.useful import process_data, get_column_names, _clean, send_temp_data
+from pysalesforce.useful import process_data, get_column_names, _clean, send_temp_data, custom_send
 
 
 class Salesforce:
     # >>>Si on fait un call avec la mauvaise version et traiter proprement l'erreur pour que ce soit forcément explicite
 
-    def __init__(self, var_env_key, dbstream, config_file_path, salesforce_test_instance=False, api_version=None, schema_prefix=None):
+    def __init__(self, var_env_key, dbstream, config_file_path, salesforce_test_instance=False, api_version=None, schema_prefix=None, incremental=False):
         self.var_env_key = var_env_key
         self.dbstream = dbstream
         self.config_file_path = config_file_path
@@ -22,6 +23,7 @@ class Salesforce:
         self.api_version = api_version
         self.objects = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader).get('objects')
         self.schema_prefix = schema_prefix if schema_prefix else yaml.load(open(self.config_file_path),Loader=yaml.FullLoader).get("schema_prefix")
+        self.incremental = incremental
 
     def get_endpoint(self):
         config = yaml.load(open(self.config_file_path), Loader=yaml.FullLoader)
@@ -50,8 +52,12 @@ class Salesforce:
         fields = self.describe_objects(object_name)
         where_clause = ""
         if since:
-            if 'LastModifiedDate' in fields:
+            if isinstance(since, datetime.datetime):
+                since = since.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+            if not self.incremental and 'LastModifiedDate' in fields:
                 where_clause = " where lastmodifieddate >= %s" % since
+            elif self.incremental and 'SystemModstamp' in fields:
+                where_clause = " where SystemModstamp >= %s" % since
         query = 'select '
         for p in fields:
             query += p + ','
@@ -257,7 +263,8 @@ class Salesforce:
 
     def main(self, _object_key, since=None, batchsize=10):
         print('Starting ' + _object_key)
-
+        if since:
+            logging.info(f"Loading {_object_key} updated since {since}")
         _object = self.objects[_object_key]
         schema = self.schema_prefix
         table = self.get_table(_object_key)
@@ -272,7 +279,7 @@ class Salesforce:
                 next_url=next_url
             )
             columns = get_column_names(data)
-            dbstream.send_with_temp_table(data, columns, 'id', schema, table)
+            custom_send(dbstream, data, schema, table, columns, incremental=self.incremental)
             while next_url:
                 data, next_url = self.process_endpoint_data(
                     _object=_object,
@@ -281,7 +288,7 @@ class Salesforce:
                     since=since,
                     next_url=next_url
                 )
-                dbstream.send_with_temp_table(data, columns, 'id', schema, table)
+                custom_send(dbstream, data, schema, table, columns, incremental=self.incremental)
 
         else:
             data, next_url = self.process_object_data(
@@ -292,7 +299,7 @@ class Salesforce:
                 next_url=next_url
             )
             columns = get_column_names(data)
-            dbstream.send_with_temp_table(data, columns, 'id', schema, table)
+            custom_send(dbstream, data, schema, table, columns, incremental=self.incremental)
             while next_url:
                 data, next_url = self.process_object_data(
                     _object=_object,
@@ -301,6 +308,6 @@ class Salesforce:
                     next_url=next_url,
                     since=since
                 )
-                dbstream.send_with_temp_table(data, columns, 'id', schema, table)
+                custom_send(dbstream, data, schema, table, columns, incremental=self.incremental)
 
         print('Ended ' + _object_key)
