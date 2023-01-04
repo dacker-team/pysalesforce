@@ -31,6 +31,18 @@ def get_column_names(data):
     return column_list
 
 
+def custom_send(datamart, data, schema, table, column_names, incremental=False):
+    if incremental:
+        data_to_send = {
+            "columns_name": column_names,
+            "data": data,
+            "table_name": f"{schema}.{table}"
+        }
+        datamart.send(data_to_send)
+    else:
+        datamart.send_with_temp_table(data, column_names, 'id', schema, table)
+
+
 def send_temp_data(datamart, data, schema_prefix, table, column_names):
     data_to_send = {
         "columns_name": column_names,
