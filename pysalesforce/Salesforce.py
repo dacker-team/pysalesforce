@@ -158,7 +158,7 @@ class Salesforce:
             imported_at=_object.get('imported_at')
         )
         columns = get_column_names(data)
-        dbstream.send_with_temp_table(data, columns, 'id', schema, table)
+        custom_send(dbstream, data, schema, table, columns, incremental=self.incremental)
 
         while locator != "null":
             raw_data, locator = self.get_data_completed_job(job_id, locator)
@@ -167,7 +167,7 @@ class Salesforce:
                 remove_columns=_object.get('remove_columns'),
                 imported_at=_object.get('imported_at')
             )
-            dbstream.send_with_temp_table(data, columns, 'id', schema, table)
+            custom_send(dbstream, data, schema, table, columns, incremental=self.incremental)
         self.dbstream.execute_query("update %s._jobs set fetched_at='%s' where id='%s'" % (
             schema, datetime.datetime.now(), job_id)
                                     )
